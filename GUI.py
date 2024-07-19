@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 import os
-from CadastrarFace import CadastrarFace
-from Treinamento import Treinamento
-from Camera import Camera
+import shutil
 import serial.tools.list_ports
+from CadastrarFace import CadastrarFace
+from Camera import Camera
 
 # Global variables
 textoDeErro = None
@@ -23,18 +23,51 @@ def mostrarMensagemDeErro(title, message):
     messagebox.showerror(title, message)
     root.destroy()
 
+def salvar_imagem():
+    nome_usuario = inputName.get()
+    if nome_usuario == "":
+        messagebox.showerror("Erro", "O nome do usuário está vazio. Digite o nome do usuário!")
+        return
+    
+    # Abre uma caixa de diálogo para selecionar uma imagem
+    arquivo_imagem = filedialog.askopenfilename(
+        title="Selecione uma imagem",
+        filetypes=[("Arquivos de Imagem", "*.jpg;*.png;*.jpeg")]
+    )
+    
+    if not arquivo_imagem:
+        messagebox.showinfo("Info", "Nenhuma imagem selecionada.")
+        return
+    
+    # Define o caminho para a pasta fotos
+    pasta_fotos = os.path.join(os.path.dirname(__file__), 'fotos')
+    
+    # Cria a pasta fotos se não existir
+    if not os.path.exists(pasta_fotos):
+        os.makedirs(pasta_fotos)
+    
+    # Define o caminho para salvar a nova imagem
+    nome_imagem = f"{nome_usuario}.jpg"  # Usa .jpg como extensão padrão
+    caminho_novo = os.path.join(pasta_fotos, nome_imagem)
+    
+    try:
+        shutil.copy(arquivo_imagem, caminho_novo)
+        messagebox.showinfo("Sucesso", f"Imagem salva como {nome_imagem} na pasta 'fotos'.")
+        inputName.delete(0, tk.END)  # Limpa o campo de entrada
+    except Exception as e:
+        messagebox.showerror("Erro", f"Não foi possível salvar a imagem: {e}")
+
 def runCamera():
     portaSerialSelecionada = port_var.get()
-    if portaSerialSelecionada:
-        cadastrarFace = Camera(f"{portaSerialSelecionada}")
-        cadastrarFace.reconhecer()
-    else:
-        mensagemDeErro=f"Por favor, selecione uma porta serial."
-        mostrarTelaDeAviso("FACE CAR - AVISO", mensagemDeErro)
-
-def start_training():
-    treinamento = Treinamento()
-    treinamento.createTrain()
+    cadastrarFace = Camera(f"{portaSerialSelecionada}")
+    cadastrarFace.reconhecer()
+    # portaSerialSelecionada = port_var.get()
+    # if portaSerialSelecionada:
+    #     cadastrarFace = Camera(f"{portaSerialSelecionada}")
+    #     cadastrarFace.reconhecer()
+    # else:
+    #     mensagemDeErro = "Por favor, selecione uma porta serial."
+    #     mostrarTelaDeAviso("FACE CAR - AVISO", mensagemDeErro)
 
 def cadastrarUsuario():
     global textoDeErro  # Declare textoDeErro as global
@@ -67,7 +100,7 @@ janela.resizable(False, False)
 labelTitle = tk.Label(janela, text="FACE CAR", font=("calibri", 30), bg="#027000", fg="white")
 labelTitle.pack(side=tk.TOP)
 
-labelName = tk.Label(janela, text="Digite o nome da usuário: ", font=("calibri", 12), bg="#027000", fg="white")
+labelName = tk.Label(janela, text="Digite o nome do usuário: ", font=("calibri", 12), bg="#027000", fg="white")
 labelName.pack(side=tk.TOP)
 
 inputName = tk.Entry(janela, width=40)
@@ -76,7 +109,8 @@ inputName.pack(side=tk.TOP)
 botoesFrame = tk.Frame(janela, bg="#027000")
 botoesFrame.pack(side=tk.TOP)
 
-botaoRegistrar = tk.Button(botoesFrame, text="Cadastrar nova face", width=20, command=cadastrarUsuario, bg="#028700", fg="white")
+# Adiciona o botão "Selecionar e Salvar Imagem" antes do botão "Abrir Câmera"
+botaoRegistrar = tk.Button(botoesFrame, text="Selecionar e Salvar Imagem", command=salvar_imagem, bg="#028700", fg="white")
 botaoRegistrar.pack(pady=10)
 
 # Create a frame to hold the camera button and dropdown menu
@@ -94,8 +128,5 @@ port_dropdown.pack(side=tk.LEFT, padx=5)
 
 # Link the dropdown to the update function
 port_dropdown.bind('<Button-1>', update_serial_ports)
-
-botaoTreinamento = tk.Button(botoesFrame, text="Treinar IA", width=30, command=start_training, bg="#028700", fg="white")
-botaoTreinamento.pack(pady=10)
 
 janela.mainloop()

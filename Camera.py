@@ -126,7 +126,6 @@ class Camera():
                         if not self.__estaSeguro and cronometroSeguranca == None:
                             print("not self.__estaSeguro and cronometroSeguranca==None")
                             cronometroSeguranca = setInterval(self.contadorSeguranca, 1)
-                            self.__tempoLimiteDeRoubo = initialInvasionLimitTime
                             self.__tempoLimiteDeSeguranca = initialSafeLimitTime
                     else:
                         name = "Desconhecido"
@@ -147,7 +146,6 @@ class Camera():
                             cronometroDeRoubo = setInterval(self.contadorRoubo, 1)
                             self.__estaSeguro = False
                             self.__tempoLimiteDeRoubo = initialInvasionLimitTime
-                            self.__tempoLimiteDeSeguranca = initialSafeLimitTime
             if self.__tempoLimiteDeRoubo == 0 and cronometroDeRoubo is not None:
                 print("self.__tempoLimiteDeRoubo==0 and cronometroDeRoubo != None")
                 print("ROUBO!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -167,9 +165,10 @@ class Camera():
                 if cronometroSeguranca != None:
                     clearInterval(cronometroSeguranca)
                     cronometroSeguranca = None
+                self.__estaSeguro=True
                 try:
                     print(self.__portaSerialArduino)
-                    self.__portaSerialArduino.write(f'{255}\n'.encode())
+                    self.__portaSerialArduino.write(f'{1}\n'.encode())
                 except Exception as e:
                     if self.__portaSerialArduino and self.__portaSerialArduino.is_open:
                         self.__portaSerialArduino.close()
@@ -186,7 +185,6 @@ class Camera():
                 if cronometroDeRoubo:
                     clearInterval(cronometroDeRoubo)
                     cronometroDeRoubo = None
-                self.__estaSeguro = True
                 self.__tempoLimiteDeRoubo = initialInvasionLimitTime
                 self.__tempoLimiteDeSeguranca = initialSafeLimitTime
 
@@ -200,6 +198,12 @@ class Camera():
                     cronometroSeguranca = None
                 break
             cv.imshow("Camera", frame)
+            if self.__tempoLimiteDeRoubo<0 or self.__tempoLimiteDeSeguranca<0:
+                self.__tempoLimiteDeRoubo=initialInvasionLimitTime
+                self.__tempoLimiteDeSeguranca=initialSafeLimitTime
+                self.__estaSeguro=True
+
+
 
         if self.__portaSerialArduino and self.__portaSerialArduino.is_open:
             self.__portaSerialArduino.close()

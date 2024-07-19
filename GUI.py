@@ -5,7 +5,6 @@ from tkinter import filedialog, messagebox
 import os
 import shutil
 import serial.tools.list_ports
-from CadastrarFace import CadastrarFace
 from Camera import Camera
 
 # Global variables
@@ -68,18 +67,6 @@ def runCamera():
     # else:
     #     mensagemDeErro = "Por favor, selecione uma porta serial."
     #     mostrarTelaDeAviso("FACE CAR - AVISO", mensagemDeErro)
-
-def cadastrarUsuario():
-    global textoDeErro  # Declare textoDeErro as global
-    nomeUsuario = inputName.get()
-    if textoDeErro:
-        textoDeErro.pack_forget()  # Remove the label if it's currently visible
-    if nomeUsuario == "":
-        textoDeErro = tk.Label(janela, text="O nome do usuário está vazio. Digite o nome do usuário!", bg="#00FFF7", fg="red")
-        textoDeErro.pack(side=tk.TOP)
-        return
-    cadastrarFace = CadastrarFace(nomeUsuario)
-    cadastrarFace.TirarFotos()
 
 def get_serial_ports():
     ports = serial.tools.list_ports.comports()

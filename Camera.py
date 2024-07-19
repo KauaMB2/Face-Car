@@ -1,151 +1,167 @@
-import cv2 as cv
-import time
-import os
-from CaixaDelimitadora import CaixaDelimitadora
-from Cronometro import setInterval, clearInterval
-import serial
-from datetime import datetime
-import tkinter as tk
-from tkinter import messagebox
-import face_recognition as fr
+import cv2 as cv  # Importa a biblioteca OpenCV para processamento de imagens e vídeos
+import time  # Importa a biblioteca time para funções relacionadas ao tempo
+import os  # Importa a biblioteca os para manipulação de arquivos e diretórios
+from CaixaDelimitadora import CaixaDelimitadora  # Importa a classe CaixaDelimitadora do módulo CaixaDelimitadora
+from Cronometro import setInterval, clearInterval  # Importa as funções setInterval e clearInterval do módulo Cronometro
+import serial  # Importa a biblioteca serial para comunicação serial
+from datetime import datetime  # Importa a classe datetime do módulo datetime
+import tkinter as tk  # Importa a biblioteca tkinter para criação de interfaces gráficas
+from tkinter import messagebox  # Importa a função messagebox do tkinter para exibição de mensagens
+import face_recognition as fr  # Importa a biblioteca face_recognition para reconhecimento facial
 
-initialInvasionLimitTime = 10
-initialSafeLimitTime = 5
-cronometroDeRoubo = None
-cronometroSeguranca = None
+initialInvasionLimitTime = 10  # Tempo limite inicial para invasão em segundos
+initialSafeLimitTime = 5  # Tempo limite inicial de segurança em segundos
+cronometroDeRoubo = None  # Variável para armazenar o cronômetro de roubo
+cronometroSeguranca = None  # Variável para armazenar o cronômetro de segurança
 
 # CORES
-corVermelha = (0, 0, 255)
-corVerde = (0, 255, 0)
+corVermelha = (0, 0, 255)  # Define a cor vermelha em BGR
+corVerde = (0, 255, 0)  # Define a cor verde em BGR
 
 # TEXTOS NAS IMAGENS
-textFont = cv.FONT_HERSHEY_SIMPLEX
-fontScale = 1
-textColor = (255, 255, 255)  # White color in BGR
-textThickness = 2
-
-def mostrarMensagemDeErro(title, message):
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-    messagebox.showerror(title, message)
-    root.destroy()
+textFont = cv.FONT_HERSHEY_SIMPLEX  # Fonte do texto nas imagens
+fontScale = 1  # Escala da fonte
+textColor = (255, 255, 255)  # Cor do texto em BGR (branco)
+textThickness = 2  # Espessura do texto
 
 class Camera():
-    def __init__(self, portaSerialArduino):
-        self.__known_face_encodings = []
-        self.__known_face_names = []
-        self.__estaSeguro = True
+    def __init__(self, portaSerialArduino):  # Inicializador da classe Camera
+        self.__facesCodificadasConhecidas = []  # Lista de codificações faciais conhecidas
+        self.__nomeDasFacesConhecidas = []  # Lista de nomes conhecidos
+        self.__estaSeguro = True  # Estado de segurança inicial
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        fotos_dir = os.path.join(base_dir, "fotos")
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # Diretório base
+        fotos_dir = os.path.join(base_dir, "fotos")  # Diretório das fotos
 
         try:
-            for filename in os.listdir(fotos_dir):
-                if filename.endswith(".jpg") or filename.endswith(".png"):  # Adicione mais extensões se necessário
-                    img_path = os.path.join(fotos_dir, filename)
+            for filename in os.listdir(fotos_dir):  # Percorre os arquivos no diretório de fotos
+                if filename.endswith(".jpg") or filename.endswith(".png"):  # Verifica a extensão do arquivo
+                    img_path = os.path.join(fotos_dir, filename)  # Caminho da imagem
                     try:
-                        img = fr.load_image_file(img_path)
-                        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-                        face_encodings = fr.face_encodings(img)
-                        if face_encodings:
-                            self.__known_face_encodings.append(face_encodings[0])
-                            self.__known_face_names.append(os.path.splitext(filename)[0])  # Use o nome do arquivo sem a extensão como nome
+                        img = fr.load_image_file(img_path)  # Carrega a imagem
+                        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)  # Converte a imagem para RGB
+                        facesCodificadas = fr.face_encodings(img)  # Codifica a face na imagem
+                        if facesCodificadas:  # Se houver codificação
+                            self.__facesCodificadasConhecidas.append(facesCodificadas[0])  # Adiciona a codificação à lista
+                            self.__nomeDasFacesConhecidas.append(os.path.splitext(filename)[0])  # Adiciona o nome à lista
                     except Exception as e:
                         print(f"Erro ao processar a imagem {img_path}: {e}")
         
         except Exception as e:
             print(f"Erro ao acessar a pasta 'fotos': {e}")
-            mostrarMensagemDeErro("FACE CAR - Erro", f"Erro ao acessar a pasta 'fotos': {e}")
+            messagebox.showerror("FACE CAR - Erro", f"Erro ao acessar a pasta 'fotos': {e}")  # Exibe uma mensagem de erro
 
-        self.__tempoLimiteDeRoubo = initialInvasionLimitTime
-        self.__tempoLimiteDeSeguranca = initialSafeLimitTime
-        self.__portaSerialArduino = None
+        self.__tempoLimiteDeRoubo = initialInvasionLimitTime  # Tempo limite de roubo inicial
+        self.__tempoLimiteDeSeguranca = initialSafeLimitTime  # Tempo limite de segurança inicial
+        self.__portaSerialArduino = None  # Inicializa a porta serial do Arduino
         try:
-            self.__portaSerialArduino = serial.Serial(portaSerialArduino, 9600, timeout=1)
-            print(self.__portaSerialArduino)
-            print(self.__portaSerialArduino.is_open)
+            self.__portaSerialArduino = serial.Serial(portaSerialArduino, 9600, timeout=1)  # Tenta inicializar a conexão serial com o Arduino na porta especificada
+            print(self.__portaSerialArduino)  # Imprime o objeto serial para depuração
+            print(self.__portaSerialArduino.is_open)  # Imprime se a porta serial está aberta para confirmação
         except Exception as e:
-            pass
-            # mensagemDeErro = f"Não foi possível enviar a informação ao Arduino.\n\nResposta do computador: {e}"
+            pass  # Passa a exceção sem tratamento, mas poderia ser melhor lidar com isso
+            # mensagemDeErro = f"Não foi possível enviar a informação ao Arduino.\n\nResposta do computador: {e}"  # Código comentado para exibir mensagem de erro, caso a conexão com o Arduino falhe
             # mostrarMensagemDeErro("FACE CAR - Erro Arduino", mensagemDeErro)
 
     def contadorRoubo(self):
-        self.__tempoLimiteDeRoubo -= 1
-        print("contadorRoubo")
-        print(self.__tempoLimiteDeRoubo)
+        self.__tempoLimiteDeRoubo -= 1  # Decrementa o tempo limite de roubo em 1
+        print("contadorRoubo")  # Imprime "contadorRoubo" para indicar que o contador de roubo está ativo
+        print(self.__tempoLimiteDeRoubo)  # Imprime o valor atual do tempo limite de roubo para depuração
 
     def contadorSeguranca(self):
-        self.__tempoLimiteDeSeguranca -= 1
-        print("contadorSeguranca")
-        print(self.__tempoLimiteDeSeguranca)
+        self.__tempoLimiteDeSeguranca -= 1  # Decrementa o tempo limite de segurança em 1
+        print("contadorSeguranca")  # Imprime "contadorSeguranca" para indicar que o contador de segurança está ativo
+        print(self.__tempoLimiteDeSeguranca)  # Imprime o valor atual do tempo limite de segurança para depuração
 
-    def reconhecer(self):
-        global cronometroDeRoubo, cronometroSeguranca, corVerde, corVermelha
-        camera = cv.VideoCapture(0, cv.CAP_DSHOW)
+
+    def reconhecer(self):  # Define o método 'reconhecer' da classe
+        global cronometroDeRoubo, cronometroSeguranca, corVerde, corVermelha  # Declara variáveis globais usadas para cronômetros e cores
+        
+        camera = cv.VideoCapture(0, cv.CAP_DSHOW)  # Inicializa a captura de vídeo da câmera padrão
+        
         # Time variables
-        tempoFinal = 0
-        tempoInicial = 0
-        while camera.isOpened():
-            _, frame = camera.read()
-            rgb_frame = frame[:, :, ::-1]
+        tempoFinal = 0  # Variável para armazenar o tempo final de captura de frame
+        tempoInicial = 0  # Variável para armazenar o tempo inicial de captura de frame
+        
+        while camera.isOpened():  # Loop que continua enquanto a câmera estiver aberta
+            _, frame = camera.read()  # Lê um frame da câmera
+            rgb_frame = frame[:, :, ::-1]  # Converte o frame de BGR para RGB
+            
             # Find all the faces and face encodings in the current frame
-            facesDetectadas = fr.face_locations(rgb_frame)
-            facesCodificacoes = fr.face_encodings(rgb_frame, facesDetectadas)
-            if not facesDetectadas and self.__estaSeguro == False and cronometroSeguranca!=None:
-                clearInterval(cronometroSeguranca)
-                cronometroSeguranca=None
-                self.__tempoLimiteDeSeguranca
+            facesDetectadas = fr.face_locations(rgb_frame)  # Detecta a localização das faces no frame
+            facesCodificadas = fr.face_encodings(rgb_frame, facesDetectadas)  # Obtém as codificações das faces detectadas
+            
+            if not facesDetectadas and self.__estaSeguro == False and cronometroSeguranca != None:  # Se não há faces detectadas e o sistema não está seguro
+                clearInterval(cronometroSeguranca)  # Para o cronômetro de segurança
+                cronometroSeguranca = None  # Define o cronômetro de segurança como None
+                self.__tempoLimiteDeSeguranca  # (Esta linha parece desnecessária, pois não faz nada)
+            
             # Show FPS
-            tempoFinal = time.time()
-            fps = int(1 / (tempoFinal - tempoInicial))
-            tempoInicial = tempoFinal
-            cv.putText(frame, f"FPS: {(fps)}", (5, 70), textFont, fontScale, textColor, 3)  # putText(frame,text,(positionX,positionY),font,tamanho,(B,G,R),espessura)
-
-            for (top, right, bottom, left), face_encoding in zip(facesDetectadas, facesCodificacoes):
+            tempoFinal = time.time()  # Obtém o tempo final para cálculo de FPS
+            fps = int(1 / (tempoFinal - tempoInicial))  # Calcula o FPS como o inverso do tempo entre frames
+            tempoInicial = tempoFinal  # Atualiza o tempo inicial para o próximo frame
+            
+            # Adiciona a informação de FPS ao frame
+            cv.putText(frame, f"FPS: {(fps)}", (5, 70), textFont, fontScale, textColor, 3)  # Coloca o texto de FPS no frame
+        
+            for (top, right, bottom, left), face_encoding in zip(facesDetectadas, facesCodificadas):  # Itera sobre as faces detectadas e suas codificações
                 # See if the face in the frame matches the known face(s)
-                matches = fr.compare_faces(self.__known_face_encodings, face_encoding)
-                if not matches:
-                    name = "Desconhecido"
-                    confianca = 0.0
+                matches = fr.compare_faces(self.__facesCodificadasConhecidas, face_encoding)  # Compara a face detectada com as faces conhecidas
+                
+                if not matches:  # Se não houver correspondência com faces conhecidas
+                    name = "Desconhecido"  # Define o nome como "Desconhecido"
+                    confianca = 0.0  # Define a confiança como 0.0
                 else:
                     # Use the known face with the smallest distance to the new face
-                    face_distances = fr.face_distance(self.__known_face_encodings, face_encoding)
-                    best_match_index = face_distances.argmin()
-                    if best_match_index < len(matches) and matches[best_match_index]:
-                        name = self.__known_face_names[best_match_index]
-                        confianca = (1 - face_distances[best_match_index]) * 100
+                    face_distances = fr.face_distance(self.__facesCodificadasConhecidas, face_encoding)  # Calcula a distância das faces conhecidas para a face detectada
+                    best_match_index = face_distances.argmin()  # Obtém o índice da melhor correspondência (menor distância)
+                    
+                    if best_match_index < len(matches) and matches[best_match_index]:  # Verifica se a melhor correspondência é válida
+                        name = self.__nomeDasFacesConhecidas[best_match_index]  # Obtém o nome da melhor correspondência
+                        confianca = (1 - face_distances[best_match_index]) * 100  # Calcula a confiança como um percentual
+                        
+                        # Formata o texto com o nome e confiança
                         texto = f"{name} - {round(confianca, 2)}%"
-                        (texto_largura, texto_altura), _ = cv.getTextSize(texto, textFont, fontScale, textThickness)  # Get the width and height of the text box
-                        # Draw the rectangle background for the text above the box
+                        (texto_largura, texto_altura), _ = cv.getTextSize(texto, textFont, fontScale, textThickness)  # Obtém a largura e altura do texto
+                        
+                        # Desenha o fundo do retângulo para o texto
                         cv.rectangle(frame, (left, top - texto_altura - 10), (left + texto_largura, top), (0,0,0), -1)
-                        # Put text above the box
+                        
+                        # Adiciona o texto ao frame
                         cv.putText(frame, texto, (left, top - 10), textFont, fontScale, textColor, textThickness, cv.LINE_AA)
-                        caixaDelimitadora = CaixaDelimitadora(frame, corVerde)
-                        bbox = (left, top, right - left, bottom - top)
-                        frame = caixaDelimitadora.draw(bbox)
-                        if not self.__estaSeguro and cronometroSeguranca == None:
-                            print("not self.__estaSeguro and cronometroSeguranca==None")
-                            cronometroSeguranca = setInterval(self.contadorSeguranca, 1)
-                            self.__tempoLimiteDeSeguranca = initialSafeLimitTime
+                        
+                        caixaDelimitadora = CaixaDelimitadora(frame, corVerde)  # Cria um objeto CaixaDelimitadora com cor verde
+                        bbox = (left, top, right - left, bottom - top)  # Define a caixa delimitadora
+                        frame = caixaDelimitadora.draw(bbox)  # Desenha a caixa delimitadora no frame
+                        
+                        if not self.__estaSeguro and cronometroSeguranca == None:  # Se o sistema não estiver seguro e o cronômetro de segurança não estiver definido
+                            print("not self.__estaSeguro and cronometroSeguranca==None")  # Imprime mensagem de depuração
+                            cronometroSeguranca = setInterval(self.contadorSeguranca, 1)  # Define um cronômetro para o método contadorSeguranca
+                            self.__tempoLimiteDeSeguranca = initialSafeLimitTime  # Reinicia o tempo limite de segurança
                     else:
-                        name = "Desconhecido"
-                        confianca = 0.0
-                        # New way to display name and confidence
+                        name = "Desconhecido"  # Define o nome como "Desconhecido"
+                        confianca = 0.0  # Define a confiança como 0.0
+                        
+                        # Formata o texto com o nome e confiança
                         texto = f"{name} - {round(confianca, 2)}%"
-                        (texto_largura, texto_altura), _ = cv.getTextSize(texto, textFont, fontScale, textThickness)  # Get the width and height of the text box
-                        # Draw the rectangle background for the text above the box
+                        (texto_largura, texto_altura), _ = cv.getTextSize(texto, textFont, fontScale, textThickness)  # Obtém a largura e altura do texto
+                        
+                        # Desenha o fundo do retângulo para o texto
                         cv.rectangle(frame, (left, top - texto_altura - 10), (left + texto_largura, top), (0,0,0), -1)
-                        # Put text above the box
+                        
+                        # Adiciona o texto ao frame
                         cv.putText(frame, texto, (left, top - 10), textFont, fontScale, textColor, textThickness, cv.LINE_AA)
-                        # Draw a box around the face using CaixaDelimitadora
-                        caixaDelimitadora = CaixaDelimitadora(frame, corVermelha)
-                        bbox = (left, top, right - left, bottom - top)
-                        frame = caixaDelimitadora.draw(bbox)
-                        if self.__estaSeguro and cronometroDeRoubo == None:
-                            print("self.__estaSeguro and cronometroDeRoubo==None")
-                            cronometroDeRoubo = setInterval(self.contadorRoubo, 1)
-                            self.__estaSeguro = False
-                            self.__tempoLimiteDeRoubo = initialInvasionLimitTime
+                        
+                        # Desenha uma caixa ao redor da face usando CaixaDelimitadora
+                        caixaDelimitadora = CaixaDelimitadora(frame, corVermelha)  # Cria um objeto CaixaDelimitadora com cor vermelha
+                        bbox = (left, top, right - left, bottom - top)  # Define a caixa delimitadora
+                        frame = caixaDelimitadora.draw(bbox)  # Desenha a caixa delimitadora no frame
+                        
+                        if self.__estaSeguro and cronometroDeRoubo == None:  # Se o sistema estiver seguro e o cronômetro de roubo não estiver definido
+                            print("self.__estaSeguro and cronometroDeRoubo==None")  # Imprime mensagem de depuração
+                            cronometroDeRoubo = setInterval(self.contadorRoubo, 1)  # Define um cronômetro para o método contadorRoubo
+                            self.__estaSeguro = False  # Define o sistema como não seguro
+                            self.__tempoLimiteDeRoubo = initialInvasionLimitTime  # Reinicia o tempo limite de roubo
             if self.__tempoLimiteDeRoubo == 0 and cronometroDeRoubo is not None:
                 print("self.__tempoLimiteDeRoubo==0 and cronometroDeRoubo != None")
                 print("ROUBO!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -173,7 +189,7 @@ class Camera():
                     if self.__portaSerialArduino and self.__portaSerialArduino.is_open:
                         self.__portaSerialArduino.close()
                     mensagemDeErro = f"Não foi possível enviar a informação ao Arduino.\n\nResposta do computador: {e}"
-                    mostrarMensagemDeErro("FACE CAR - Erro Arduino", mensagemDeErro)
+                    messagebox.showerror("FACE CAR - Erro Arduino", mensagemDeErro)  # Exibe uma mensagem de erro
                 self.__tempoLimiteDeRoubo = initialInvasionLimitTime
                 self.__tempoLimiteDeSeguranca = initialSafeLimitTime
 

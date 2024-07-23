@@ -50,6 +50,6 @@ class TirarFoto:
         cv.destroyAllWindows()
 
 if __name__ == "__main__":
-    entradaNome = input("Informo o nome do usuário que será cadastrado: ")
+    entradaNome = input("Informe o nome do usuário que será cadastrado: ")
     cadastrarFace = TirarFoto(os.path.dirname(os.path.abspath(__file__)), entradaNome)
     cadastrarFace.tirarFoto()

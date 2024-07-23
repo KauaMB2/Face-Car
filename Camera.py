@@ -5,16 +5,16 @@ from CaixaDelimitadora import CaixaDelimitadora  # Importa a classe CaixaDelimit
 from Cronometro import setInterval, clearInterval  # Importa as funções setInterval e clearInterval do módulo Cronometro
 import serial  # Importa a biblioteca serial para comunicação serial
 from datetime import datetime  # Importa a classe datetime do módulo datetime
-import tkinter as tk  # Importa a biblioteca tkinter para criação de interfaces gráficas
+import tkinter as tk #Importa tkinter
 from tkinter import messagebox  # Importa a função messagebox do tkinter para exibição de mensagens
 import face_recognition as fr  # Importa a biblioteca face_recognition para reconhecimento facial
 
-initialInvasionLimitTime = 10  # Tempo limite inicial para invasão em segundos
-initialSafeLimitTime = 5  # Tempo limite inicial de segurança em segundos
+tempoLimiteDeInvasao = 10  # Tempo limite inicial para invasão em segundos
+tempoLimiteDeSeguranca = 5  # Tempo limite inicial de segurança em segundos
 cronometroDeRoubo = None  # Variável para armazenar o cronômetro de roubo
 cronometroSeguranca = None  # Variável para armazenar o cronômetro de segurança
 
-# CORES
+# CORES 
 corVermelha = (0, 0, 255)  # Define a cor vermelha em BGR
 corVerde = (0, 255, 0)  # Define a cor verde em BGR
 
@@ -23,6 +23,12 @@ textFont = cv.FONT_HERSHEY_SIMPLEX  # Fonte do texto nas imagens
 fontScale = 1  # Escala da fonte
 textColor = (255, 255, 255)  # Cor do texto em BGR (branco)
 textThickness = 2  # Espessura do texto
+
+def mostrarMensagemDeErro(title, message):#Função para exibir error
+    root = tk.Tk()#Cria janela tkinter
+    root.withdraw()  # Esconde a tela principal
+    messagebox.showerror(title, message)#Mostra a mensagem de erro
+    root.destroy()#Apaga janela principal e deixa somente a de erro
 
 class Camera():
     def __init__(self, portaSerialArduino):  # Inicializador da classe Camera
@@ -49,10 +55,10 @@ class Camera():
         
         except Exception as e:
             print(f"Erro ao acessar a pasta 'fotos': {e}")
-            messagebox.showerror("FACE CAR - Erro", f"Erro ao acessar a pasta 'fotos': {e}")  # Exibe uma mensagem de erro
+            mostrarMensagemDeErro("FACE CAR - Erro", f"Erro ao acessar a pasta 'fotos': {e}")# Exibe uma mensagem de erro
 
-        self.__tempoLimiteDeRoubo = initialInvasionLimitTime  # Tempo limite de roubo inicial
-        self.__tempoLimiteDeSeguranca = initialSafeLimitTime  # Tempo limite de segurança inicial
+        self.__tempoLimiteDeRoubo = tempoLimiteDeInvasao  # Tempo limite de roubo inicial
+        self.__tempoLimiteDeSeguranca = tempoLimiteDeSeguranca  # Tempo limite de segurança inicial
         self.__portaSerialArduino = None  # Inicializa a porta serial do Arduino
         try:
             self.__portaSerialArduino = serial.Serial(portaSerialArduino, 9600, timeout=1)  # Tenta inicializar a conexão serial com o Arduino na porta especificada
@@ -137,7 +143,7 @@ class Camera():
                         if not self.__estaSeguro and cronometroSeguranca == None:  # Se o sistema não estiver seguro e o cronômetro de segurança não estiver definido
                             print("not self.__estaSeguro and cronometroSeguranca==None")  # Imprime mensagem de depuração
                             cronometroSeguranca = setInterval(self.contadorSeguranca, 1)  # Define um cronômetro para o método contadorSeguranca
-                            self.__tempoLimiteDeSeguranca = initialSafeLimitTime  # Reinicia o tempo limite de segurança
+                            self.__tempoLimiteDeSeguranca = tempoLimiteDeSeguranca  # Reinicia o tempo limite de segurança
                     else:
                         name = "Desconhecido"  # Define o nome como "Desconhecido"
                         confianca = 0.0  # Define a confiança como 0.0
@@ -161,69 +167,71 @@ class Camera():
                             print("self.__estaSeguro and cronometroDeRoubo==None")  # Imprime mensagem de depuração
                             cronometroDeRoubo = setInterval(self.contadorRoubo, 1)  # Define um cronômetro para o método contadorRoubo
                             self.__estaSeguro = False  # Define o sistema como não seguro
-                            self.__tempoLimiteDeRoubo = initialInvasionLimitTime  # Reinicia o tempo limite de roubo
-            if self.__tempoLimiteDeRoubo == 0 and cronometroDeRoubo is not None:
+                            self.__tempoLimiteDeRoubo = tempoLimiteDeInvasao  # Reinicia o tempo limite de roubo
+            if self.__tempoLimiteDeRoubo == 0 and cronometroDeRoubo is not None:# Se o tempo limite de roubo for zero e o cronômetro de roubo estiver ativo
                 print("self.__tempoLimiteDeRoubo==0 and cronometroDeRoubo != None")
                 print("ROUBO!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                DIR = os.path.dirname(os.path.abspath(__file__))
-                # Add date and time to the image
-                dataEhoraAtual = datetime.now()
-                tempoAtual = dataEhoraAtual.strftime("%Y-%m-%d %H:%M:%S")
-                nomeDaFoto = dataEhoraAtual.strftime("%Y-%m-%d %H-%M-%S")
-                diretorioDosRoubos = f"{DIR}/roubos/{nomeDaFoto}.png"
-                position = (10, 30)  # Bottom left corner of the image
-                fotoDoRoubo = frame
-                # Adding text to the image
+                
+                DIR = os.path.dirname(os.path.abspath(__file__))  # Obtém o diretório atual do script
+                
+                # Adiciona a data e hora à imagem
+                dataEhoraAtual = datetime.now()  # Obtém a data e hora atual
+                tempoAtual = dataEhoraAtual.strftime("%Y-%m-%d %H:%M:%S")  # Formata a data e hora
+                nomeDaFoto = dataEhoraAtual.strftime("%Y-%m-%d %H-%M-%S")  # Formata a data e hora para o nome do arquivo
+                diretorioDosRoubos = f"{DIR}/roubos/{nomeDaFoto}.png"  # Define o caminho onde a foto será salva
+                position = (10, 30)  # Posição do texto na imagem
+                fotoDoRoubo = frame  # Frame atual da câmera
+                # Adiciona o texto à imagem
                 cv.putText(fotoDoRoubo, tempoAtual, position, textFont, fontScale, textColor, textThickness, cv.LINE_AA)
-                cv.imwrite(diretorioDosRoubos, fotoDoRoubo)
-                clearInterval(cronometroDeRoubo)
-                cronometroDeRoubo = None
-                if cronometroSeguranca != None:
+                cv.imwrite(diretorioDosRoubos, fotoDoRoubo)  # Salva a imagem com o texto
+                clearInterval(cronometroDeRoubo)  # Para o cronômetro de roubo
+                cronometroDeRoubo = None  # Reseta a variável do cronômetro de roubo 
+                if cronometroSeguranca is not None:
+                    # Se o cronômetro de segurança estiver ativo, para e reseta
                     clearInterval(cronometroSeguranca)
                     cronometroSeguranca = None
-                self.__estaSeguro=True
-                try:
+                self.__estaSeguro = True  # Define que está seguro
+                try:# Tenta enviar um comando ao Arduino
                     print(self.__portaSerialArduino)
                     self.__portaSerialArduino.write(f'{1}\n'.encode())
                 except Exception as e:
+                    # Em caso de erro, fecha a porta serial e exibe uma mensagem de erro
                     if self.__portaSerialArduino and self.__portaSerialArduino.is_open:
                         self.__portaSerialArduino.close()
-                    mensagemDeErro = f"Não foi possível enviar a informação ao Arduino.\n\nResposta do computador: {e}"
-                    messagebox.showerror("FACE CAR - Erro Arduino", mensagemDeErro)  # Exibe uma mensagem de erro
-                self.__tempoLimiteDeRoubo = initialInvasionLimitTime
-                self.__tempoLimiteDeSeguranca = initialSafeLimitTime
+                    mostrarMensagemDeErro("FACE CAR - Erro Arduino", f"Não foi possível enviar a informação ao Arduino.\n\nResposta do computador: {e}")
+                
+                self.__tempoLimiteDeRoubo = tempoLimiteDeInvasao  # Reseta o tempo limite de roubo
+                self.__tempoLimiteDeSeguranca = tempoLimiteDeSeguranca  # Reseta o tempo limite de segurança
 
             if self.__tempoLimiteDeSeguranca == 0 and cronometroSeguranca is not None:
+                # Se o tempo limite de segurança for zero e o cronômetro de segurança estiver ativo
                 print("self.__tempoLimiteDeSeguranca==0 and cronometroSeguranca !=None")
-                self.__estaSeguro = True
-                clearInterval(cronometroSeguranca)
-                cronometroSeguranca = None
+                self.__estaSeguro = True  # Define que está seguro
+                clearInterval(cronometroSeguranca)  # Para o cronômetro de segurança
+                cronometroSeguranca = None  # Reseta a variável do cronômetro de segurança
                 if cronometroDeRoubo:
+                    # Se o cronômetro de roubo estiver ativo, para e reseta
                     clearInterval(cronometroDeRoubo)
                     cronometroDeRoubo = None
-                self.__tempoLimiteDeRoubo = initialInvasionLimitTime
-                self.__tempoLimiteDeSeguranca = initialSafeLimitTime
-
-            key = cv.waitKey(1)  # ESC = 27
-            if key == 27:  # Se apertou o ESC
+                self.__tempoLimiteDeRoubo = tempoLimiteDeInvasao  # Reseta o tempo limite de roubo
+                self.__tempoLimiteDeSeguranca = tempoLimiteDeSeguranca  # Reseta o tempo limite de segurança
+            chave = cv.waitKey(1)  # ESC = 27
+            if chave == 27:  # Se a tecla ESC for pressionada
                 if cronometroDeRoubo:
-                    clearInterval(cronometroDeRoubo)
-                    cronometroDeRoubo = None
+                    clearInterval(cronometroDeRoubo)  # Para o cronômetro de roubo
+                    cronometroDeRoubo = None  # Reseta a variável do cronômetro de roubo
                 if cronometroSeguranca:
-                    clearInterval(cronometroSeguranca)
-                    cronometroSeguranca = None
-                break
-            cv.imshow("Camera", frame)
-            if self.__tempoLimiteDeRoubo<0 or self.__tempoLimiteDeSeguranca<0:
-                self.__tempoLimiteDeRoubo=initialInvasionLimitTime
-                self.__tempoLimiteDeSeguranca=initialSafeLimitTime
-                self.__estaSeguro=True
-
-
-
+                    clearInterval(cronometroSeguranca)  # Para o cronômetro de segurança
+                    cronometroSeguranca = None  # Reseta a variável do cronômetro de segurança
+                break  # Sai do loop
+            cv.imshow("Camera", frame)# Mostra o frame da câmera em uma janela chamada "Camera"
+            if self.__tempoLimiteDeRoubo < 0 or self.__tempoLimiteDeSeguranca < 0:# Se algum dos tempos limites for negativo, reseta ambos e define que está seguro
+                self.__tempoLimiteDeRoubo = tempoLimiteDeInvasao
+                self.__tempoLimiteDeSeguranca = tempoLimiteDeSeguranca
+                self.__estaSeguro = True
         if self.__portaSerialArduino and self.__portaSerialArduino.is_open:
-            self.__portaSerialArduino.close()
-        cv.destroyAllWindows()
+            self.__portaSerialArduino.close()# Fecha a porta serial do Arduino, se estiver aberta
+        cv.destroyAllWindows()  # Fecha todas as janelas do OpenCV
 
 if __name__ == "__main__":
     portaSerial = input("Informe o número(Somente número. Ex: 4) da porta serial: ")

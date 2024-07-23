@@ -35,21 +35,25 @@ class TirarFoto:
             # Adiciona a informação de FPS ao frame
             cv.putText(frame, f"FPS: {(fps)}", (5, 70), textFont, fontScale, textColor, 3)  # Coloca o texto de FPS no frame
             cv.putText(frame, f"Tempo: {variavelCronometro}", (5, 100), textFont, fontScale, textColor, 3)  # Coloca o texto de tempo no frame
-            key = cv.waitKey(1)  # ESC = 27
-            if key == 27:  # Se apertou o ES
+            chave = cv.waitKey(1)  # ESC = 27
+            if chave == 27:  # Se apertou o ESC
+                # Para o cronômetro que tira a foto
                 clearInterval(cronometroTirarFoto)
-                variavelCronometro=tempoInicialCronometro
-                break
+                cronometroTirarFoto = None  # Reseta a variável do cronômetro
+                variavelCronometro = tempoInicialCronometro  # Reseta a variável do cronômetro ao valor inicial
+                break  # Sai do loop
+            # Mostra o frame da câmera em uma janela chamada "Camera"
             cv.imshow("Camera", frame)
-            if variavelCronometro==0:
-                clearInterval(cronometroTirarFoto)
-                diretorioDosRoubos = f"{self.__DIR}/fotos/{self.__entradaNome}.jpg"
-                cv.imwrite(diretorioDosRoubos, frame)
-                variavelCronometro=tempoInicialCronometro
-                break
-        cv.destroyAllWindows()
+            if variavelCronometro == 0:  # Se o cronômetro chegou a zero
+                clearInterval(cronometroTirarFoto)# Para o cronômetro que tira a foto
+                cronometroTirarFoto = None  # Reseta a variável do cronômetro
+                diretorioDosRoubos = f"{self.__DIR}/fotos/{self.__entradaNome}.jpg"# Define o caminho onde a foto será salva
+                cv.imwrite(diretorioDosRoubos, frame)# Salva a foto no diretório especificado
+                variavelCronometro = tempoInicialCronometro  # Reseta a variável do cronômetro ao valor inicial
+                break  # Sai do loop
+            cv.destroyAllWindows()# Fecha todas as janelas do OpenCV
 
 if __name__ == "__main__":
-    entradaNome = input("Informe o nome do usuário que será cadastrado: ")
-    cadastrarFace = TirarFoto(os.path.dirname(os.path.abspath(__file__)), entradaNome)
-    cadastrarFace.tirarFoto()
+    entradaNome = input("Informe o nome do usuário que será cadastrado: ")# Solicita o nome do usuário que será cadastrado
+    cadastrarFace = TirarFoto(os.path.dirname(os.path.abspath(__file__)), entradaNome)# Cria uma instância da classe TirarFoto com o diretório atual e o nome do usuário
+    cadastrarFace.tirarFoto()# Chama o método tirarFoto da instância criada

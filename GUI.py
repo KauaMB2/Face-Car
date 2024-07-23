@@ -9,6 +9,7 @@ from TirarFoto import TirarFoto
 from TelaDeRemocao import TelaDeRemocao
 from Camera import Camera #Importa biblioteca criada para abrir câmera e identificar as faces
 
+
 DIR=os.path.dirname(os.path.abspath(__file__))#Diretório do arquivo que está sendo executado
 
 #Variáveis globais para deletar as fotos da pasta fotos/
